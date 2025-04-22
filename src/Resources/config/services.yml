@@ -1,0 +1,22 @@
+services:
+  # default configuration for services in *this* file
+  _defaults:
+    autowire: true # Automatically injects dependencies in your services.
+    autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
+
+  # makes classes in src/ available to be used as services
+  # this creates a service per class whose id is the fully-qualified class name
+  Codebuster\ContaoOpenaiImagemeta\:
+    resource: "../../../src/"
+    exclude:
+      - "../../DependencyInjection/"
+      - "../../Entity/"
+      - "../../Kernel.php"
+      - "../../Tests/"
+      - "../../Resources/contao"
+
+  Codebuster\ContaoOpenaiImagemeta\Controller\:
+    resource: ../../../src/Controller
+    public: true
+
+

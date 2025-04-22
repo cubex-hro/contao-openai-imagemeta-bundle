@@ -1,0 +1,4 @@
+# config/routes.yaml
+imagerecognition.controller:
+  resource: ../../Controller
+  type: attribute
