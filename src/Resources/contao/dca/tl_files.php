@@ -36,7 +36,7 @@ class tl_files_imagemeta extends Contao\Backend {
                     const imagePath = "'.$dc->activeRecord->path.'";
                     const imagemetaField = document.getElementById("ctrl_meta_alt_0");
                     
-                    const fetchPromise = fetch("/_imagerecognition?image="+imagePath);
+                    const fetchPromise = fetch("/_imagemeta?image="+imagePath);
                     
                     btn.disabled = true;
 
@@ -48,7 +48,6 @@ class tl_files_imagemeta extends Contao\Backend {
                         if(content.success === true) {
                             
                             imagemetaField.value = content.content;
-                            // trigger this damn SERP preview
                             imagemetaField.dispatchEvent(new Event("input", { bubbles: true }));
                            
                             btn.disabled = false;
@@ -62,8 +61,9 @@ class tl_files_imagemeta extends Contao\Backend {
                 }
             </script>
             <div class="w50 widget">
-                <h3><label for="ctrl_vision_generate">'.$GLOBALS["TL_LANG"]["tl_files"]["vision_generate"][0].'</label></h3>
-                <button class="tl_submit" style="margin-right:5px;" onclick="generateTags(this,\'' .$dc->id.'\',\'imagemeta\');return false">'.$GLOBALS["TL_LANG"]["tl_files"]["vision_generate_imagemeta"][0].'</button>
+                <h3><label for="ctrl_vision_generate">'.$GLOBALS["TL_LANG"]["tl_files"]["imagemeta_actions"][0].'</label></h3>
+                <button class="tl_submit" style="margin:5px 0;" onclick="generateTags(this,\'' .$dc->id.'\',\'imagemeta\');return false">'.$GLOBALS["TL_LANG"]["tl_files"]["imagemeta_generate"][0].'</button>
+                <p class="tl_help tl_tip">Hinweis: Das generieren des Alt-Text mithilfe von OpenAI verursacht Kosten.</p>
             </div>  
         ';
         return $strContent;

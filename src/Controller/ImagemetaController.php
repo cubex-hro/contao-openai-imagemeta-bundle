@@ -3,7 +3,6 @@
 namespace Codebuster\ContaoOpenaiImagemetaBundle\Controller;
 
 use Contao\Config;
-use Contao\CoreBundle\Image\ImageFactoryInterface;
 use Contao\Image\ResizeConfiguration;
 use Contao\System;
 use Contao\Input;
@@ -12,12 +11,10 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 
-#[Route('/_imagerecognition', name: ImageRecognitionController::class, defaults: ['_scope' => 'backend', '_token_check' => true])]
-class ImageRecognitionController
+#[Route('/_imagemeta', name: ImagemetaController::class, defaults: ['_scope' => 'backend', '_token_check' => true])]
+class ImagemetaController
 {
-    public function __construct(private readonly ImageFactoryInterface $imageFactory)
-    {
-    }
+
     public function __invoke(Request $request): Response
     {
         $container = System::getContainer();
@@ -29,7 +26,14 @@ class ImageRecognitionController
         }
 
         if(Input::get('image')) {
-            $base64image = $this->resizeImageToBase64($base.'/'.Input::get('image'));
+            $image = $base.'/'.Input::get('image');
+            if(Config::get('im_compress_image')) {
+                $base64image = $this->resizeImageToBase64($image);
+            } else {
+                $type = pathinfo($image, PATHINFO_EXTENSION);
+                $data = file_get_contents($image);
+                $base64image = 'data:image/' . $type . ';base64,' . base64_encode($data);
+            }
         }
 
         $response = $this->doRequest($base64image);
@@ -40,21 +44,21 @@ class ImageRecognitionController
     private function doRequest(string $base64image): string {
 
         $strReturn = "";
-        $token = Config::get('gpt_token');
-        $prompt = Config::get('gpt_prompt');
-        $model = Config::get('gpt_model');
+        $token = Config::get('im_gpt_token');
+        $prompt = Config::get('im_gpt_prompt') ?: 'Erstelle einen kurzen und prägnanten ALT-Titel basierend auf dem Bild';
+        $model = Config::get('im_gpt_model') ?: 'gpt-4.1-mini';
 
         if($token & $base64image) {
             $endpoint = "https://api.openai.com/v1/responses";
             $body = '{
-              "model": "gpt-4.1-nano",
+              "model": "'.$model.'",
               "input": [
                 {
                   "role": "user",
                   "content": [
                     {
                       "type": "input_text",
-                      "text": "Erstelle einen kurzen und prägnanten ALT-Titel basierend auf dem Bild. Keine Schlüsselwörter, nur Sätze Sei spezifisch und beschreibend. Beginne den ALT-Titel nicht mit „Bild von …“ oder „Foto von …“, da dies redundant ist. Bitte erstelle einen beschreibenden ALT-Titel"
+                      "text": "'.$prompt.'"
                     },
                     {
                       "type": "input_image",
@@ -110,7 +114,7 @@ class ImageRecognitionController
             return $this->resizeWithGdBase64($sourcePath, $maxLength);
         }
 
-        return null; // Kein Backend verfügbar
+        return null;
     }
 
     private function resizeWithImagineBase64(string $sourcePath, int $maxLength): ?string

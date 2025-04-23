@@ -12,7 +12,7 @@ use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
 /**
  * Class DocumentsExtension
  */
-class ImageRecognitionExtension extends Extension
+class ImagemetaExtension extends Extension
 {
 
     /**

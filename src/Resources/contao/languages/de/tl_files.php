@@ -2,5 +2,5 @@
 
 $strName = 'tl_files';
 
-$GLOBALS['TL_LANG'][$strName]['vision_generate'] = ['Aktionen',''];
-$GLOBALS['TL_LANG'][$strName]['vision_generate_imagemeta'] = ['Alt-Tag generieren',''];
+$GLOBALS['TL_LANG'][$strName]['imagemeta_actions'] = ['Imagemeta',''];
+$GLOBALS['TL_LANG'][$strName]['imagemeta_generate'] = ['Alt-Text aus Bildmaterial generieren',''];
