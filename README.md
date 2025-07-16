@@ -16,7 +16,7 @@ composer require cubex-hro/contao-openai-imagemeta-bundle
 
 | Contao Version | PHP Version |
 |----------------|-------------|
-| \>= 5.3        | ^8.2        |
+| \>= 4.13       | ^8.2        |
 
 
 ## Important note
