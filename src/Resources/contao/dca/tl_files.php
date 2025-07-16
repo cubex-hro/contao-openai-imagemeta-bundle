@@ -47,7 +47,8 @@ class tl_files_imagemeta extends Contao\Backend {
                             console.log("MAGIC 🪄🎩");   
                         } else {
                             btn.disabled = false;
-                            alert(content.content);
+                            console.log(content);
+                            alert(content.message);
                         }
                     });
                     

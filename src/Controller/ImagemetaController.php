@@ -11,7 +11,9 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 
-#[Route('/_imagemeta', name: ImagemetaController::class, defaults: ['_scope' => 'backend', '_token_check' => true])]
+/**
+ * @Route("/_imagemeta", name=ImagemetaController::class, defaults={"_scope" = "frontend", "_token_check" = true})
+ */
 class ImagemetaController
 {
 
@@ -20,11 +22,15 @@ class ImagemetaController
         $container = System::getContainer();
         $blnBackend = $container->get('contao.security.token_checker')->hasBackendUser();
         $base = System::getContainer()->getParameter('kernel.project_dir');
-        $strImagepath = "";
+
         if ($blnBackend === false) {
-            return new Response('Bad Request', Response::HTTP_BAD_REQUEST);
+            return $this->jsonResponse([
+                'success' => false,
+                'message' => 'Bad Request (no backend user)'
+            ], Response::HTTP_BAD_REQUEST);
         }
 
+        $base64image = '';
         if(Input::get('image')) {
             $image = $base.'/'.Input::get('image');
             if(Config::get('im_compress_image')) {
@@ -36,71 +42,88 @@ class ImagemetaController
             }
         }
 
-        $response = $this->doRequest($base64image);
+        if(!$base64image) {
+            return $this->jsonResponse([
+                'success' => false,
+                'message' => 'Konnte kein Base64 Bild generieren'
+            ], Response::HTTP_BAD_REQUEST);
+        }
 
-        return new Response($response,Response::HTTP_OK);
+        [$responseData, $statusCode] = $this->doRequest($base64image);
+
+        return $this->jsonResponse($responseData, $statusCode);
     }
 
-    private function doRequest(string $base64image): string {
 
-        $strReturn = "";
+    private function doRequest(string $base64image): array
+    {
         $token = Config::get('im_gpt_token');
         $prompt = Config::get('im_gpt_prompt') ?: 'Erstelle einen kurzen und prägnanten ALT-Titel basierend auf dem Bild';
         $model = Config::get('im_gpt_model') ?: 'gpt-4.1-mini';
 
-        if($token & $base64image) {
-            $endpoint = "https://api.openai.com/v1/responses";
-            $body = '{
-              "model": "'.$model.'",
-              "input": [
-                {
-                  "role": "user",
-                  "content": [
-                    {
-                      "type": "input_text",
-                      "text": "'.$prompt.'"
-                    },
-                    {
-                      "type": "input_image",
-                      "image_url": "'.$base64image.'"
-                    }
-                  ]
-                }
-              ]
-            }';
+        if (!$token || !$base64image) {
+            return [[
+                'success' => false,
+                'message' => 'Token oder Bilddaten fehlen'
+            ], Response::HTTP_BAD_REQUEST];
+        }
 
-            $client = new Client();
-            $headers = [
-                "Content-Type" => "application/json",
-                "Authorization" => "Bearer ".$token,
-            ];
-            $request = new \GuzzleHttp\Psr7\Request('POST', $endpoint, $headers,$body);
-            $res = $client->sendAsync($request)->wait();
+        $endpoint = "https://api.openai.com/v1/responses";
+        $body = json_encode([
+            "model" => $model,
+            "input" => [[
+                "role" => "user",
+                "content" => [
+                    [ "type" => "input_text", "text" => $prompt ],
+                    [ "type" => "input_image", "image_url" => $base64image ]
+                ]
+            ]]
+        ]);
+
+        $client = new Client();
+        $headers = [
+            "Content-Type" => "application/json",
+            "Authorization" => "Bearer ".$token,
+        ];
+
+        try {
+            $request = new \GuzzleHttp\Psr7\Request('POST', $endpoint, $headers, $body);
+            $res = $client->send($request);
 
             $content = json_decode($res->getBody()->getContents());
 
-            if(isset($content->status) && $content->status == "completed") {
-                $output = $content->output[0]->content[0]->text;
-                $arrReturn = [
-                    "content" => $output,
-                    "input_tokens" => $content->usage->input_tokens,
-                    "output_tokens" => $content->usage->output_tokens,
-                    "total_tokens" => $content->usage->total_tokens,
-                    "success" => true
-                ];
-            } else {
-                $arrReturn = [
-                    "content" => 'no content',
-                    "success" => false
-                ];
+            if (isset($content->status) && $content->status === "completed") {
+                return [[
+                    "success" => true,
+                    "content" => $content->output[0]->content[0]->text ?? '',
+                    "input_tokens" => $content->usage->input_tokens ?? null,
+                    "output_tokens" => $content->usage->output_tokens ?? null,
+                    "total_tokens" => $content->usage->total_tokens ?? null
+                ], Response::HTTP_OK];
             }
 
-            $strReturn = json_encode($arrReturn);
-        }
+            return [[
+                "success" => false,
+                "message" => 'API Response unvollständig oder fehlerhaft.'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR];
 
-        header('Content-Type: application/json');
-        return $strReturn;
+        } catch (\GuzzleHttp\Exception\ClientException $e) {
+            $status = $e->getResponse()?->getStatusCode() ?? 500;
+            $body = json_decode($e->getResponse()?->getBody()?->getContents(), true);
+
+            return [[
+                'success' => false,
+                'message' => $body['error']['message'] ?? 'Client error',
+            ], $status];
+
+        } catch (\Throwable $e) {
+            return [[
+                'success' => false,
+                'message' => 'Fehler bei der Anfrage: '.$e->getMessage()
+            ], Response::HTTP_INTERNAL_SERVER_ERROR];
+        }
     }
+
 
     private function resizeImageToBase64(string $sourcePath, int $maxLength = 1024): ?string
     {
@@ -186,5 +209,13 @@ class ImagemetaController
 
         return 'data:' . $mime . ';base64,' . base64_encode($data);
     }
+
+    private function jsonResponse(array $data, int $status = 200): Response
+    {
+        return new Response(json_encode($data), $status, [
+            'Content-Type' => 'application/json'
+        ]);
+    }
+
 
 }
